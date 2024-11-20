@@ -1,101 +1,118 @@
+import { Button } from "@/components/ui/button";
+import { UserButton } from "@clerk/nextjs";
+import { MoveRight, Video } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.js
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const userButtonAppearance = {
+    elements: {
+      userButtonAvatarBox: "w-10 h-10",
+      userButtonPopoverCard: "bg-blue-500",
+      userButtonPopoverActionButton: "text-blue-600",
+    },
+  };
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  return (
+    <>
+      {/* Header */}
+      <div className="p-3 px-5 flex items-center justify-between shadow-md bg-white">
+        <div className="flex gap-3 items-center">
+          <Image src={"/logo.svg"} width={50} height={50} alt="Logo" />
+          <h2 className="hidden md:block font-bold text-2xl text-gray-800">
+            AI Shorts Generator
+          </h2>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+        <div className="flex gap-3 items-center">
+          <Link href={"/dashboard"}>
+            <Button className="bg-primary text-white hover:bg-primary-dark rounded-lg shadow-md">
+              Dashboard
+            </Button>
+          </Link>
+          <UserButton appearance={userButtonAppearance} />
+        </div>
+      </div>
+
+      {/* Hero Section */}
+      <div className="bg-gradient-to-b from-white via-purple-100 to-gray-100 min-h-screen">
+        <div className="text-center px-8 pt-16">
+          <h2 className="font-bold text-4xl lg:text-6xl text-gray-800">
+            Build Your Short Video <span className="text-primary">With AI</span>
+          </h2>
+          <p className="text-lg lg:text-2xl mt-4 text-gray-600">
+            Effortlessly Build AI-Generated Short Videos in Minutes
+          </p>
+          <div className="mt-8 flex justify-center items-center gap-4">
+            <Link href={"/dashboard"}>
+              <Button className="gap-2 lg:px-8 lg:py-6 lg:text-lg bg-primary text-white rounded-lg shadow-lg hover:shadow-xl transition">
+                Get Started <MoveRight />
+              </Button>
+            </Link>
+            <Button
+              className="gap-2 lg:px-8 lg:py-6 lg:text-lg border-2 border-primary text-primary hover:bg-primary-light hover:text-black rounded-lg shadow-md"
+              variant="outline"
+            >
+              <Video /> Watch Demo
+            </Button>
+          </div>
+        </div>
+
+        {/* How It Works Section */}
+        <div className="mt-40 lg:mt-60 px-8 pb-20">
+          <h2 className="text-center font-bold text-3xl md:text-4xl lg:text-6xl text-gray-800 mb-8 md:mb-12">
+            How It Works?
+          </h2>
+          <div className="flex flex-wrap justify-center gap-y-12 md:gap-y-16 gap-x-6 md:gap-x-8 lg:gap-y-24">
+            {[
+              {
+                step: "1",
+                title: "Select Content Type",
+                description:
+                  "Choose the type of content for your short video, whether it's educational, promotional, or entertaining.",
+              },
+              {
+                step: "2",
+                title: "Select Style",
+                description:
+                  "Pick a style that fits your vision, from minimalistic to bold and dynamic designs.",
+              },
+              {
+                step: "3",
+                title: "Select Voice",
+                description:
+                  "Customize the voice for your short video with options like tone, language, and accent.",
+              },
+              {
+                step: "4",
+                title: "Select Duration",
+                description:
+                  "Set the duration of your video to match your preferred length, from quick bites to detailed narratives.",
+              },
+              {
+                step: "5",
+                title: "Generate",
+                description:
+                  "Let the AI handle the rest and generate your high-quality, ready-to-share short video effortlessly.",
+              },
+            ].map((item, index) => (
+              <div
+                key={index}
+                className="text-center bg-white shadow-md hover:shadow-lg p-6 rounded-lg transition w-full max-w-xs md:max-w-sm"
+              >
+                <div className="w-16 h-16 md:w-24 md:h-24 mx-auto mb-4 md:mb-6 bg-primary text-white text-2xl md:text-3xl font-bold flex items-center justify-center rounded-full">
+                  {item.step}
+                </div>
+                <h3 className="font-bold text-lg md:text-2xl mb-2 md:mb-4 text-gray-800">
+                  {item.title}
+                </h3>
+                <p className="text-gray-600 text-sm md:text-lg">
+                  {item.description}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </>
   );
 }
