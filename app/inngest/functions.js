@@ -10,7 +10,7 @@ export const generateShort = inngest.createFunction(
     event: "short.generate", // Event trigger for Inngest
   },
   async ({ event, step }) => {
-    const { formData, videoScript, id, user, userDetail } = event.data;
+    const { formData, id, user, userDetail } = event.data;
 
     // Function to generate an image with retry mechanism
     const generateImageWithRetry = async (scene, index) => {
@@ -62,7 +62,29 @@ export const generateShort = inngest.createFunction(
     };
 
     try {
-      // Step 1 (Generate Audio) and Step 3 (Generate Images) run in parallel
+      const prompt = `Generate a ${formData?.duration}-long video script on "${formData?.topic}" as a JSON array with:
+        1. "contentText": A detailed narrative for each scene.
+        2. "imagePrompt": A detailed ${formData?.style} image description aligned with the scene.`;
+
+      // Generate the Video Script
+      const videoScriptResponse = await step.run(
+        "Generate VideoScript",
+        async () => {
+          const response = await axios.post(
+            `${process.env.NEXT_PUBLIC_API_URL}/api/get-video-script`,
+            {
+              prompt: prompt,
+            }
+          );
+
+          if (!response?.data?.result) {
+            throw new Error("Video script generation failed.");
+          }
+          return response.data.result; // Return the generated script
+        }
+      );
+
+      // (Generate Audio) and (Generate Images) run in parallel
       const [audioUrl, images] = await Promise.all([
         // Step 1: Generate Audio (and proceed to generate captions)
         (async () => {
@@ -70,7 +92,9 @@ export const generateShort = inngest.createFunction(
             const audioResponse = await axios.post(
               `${process.env.NEXT_PUBLIC_API_URL}/api/generate-audio`,
               {
-                text: videoScript.map((item) => item.contentText).join(" "), // Concatenate all script content
+                text: videoScriptResponse
+                  .map((item) => item.contentText)
+                  .join(" "), // Concatenate all script content
                 id,
                 voice: formData.voice,
               }
@@ -84,7 +108,7 @@ export const generateShort = inngest.createFunction(
             return audioResponse.data.result;
           });
 
-          // Step 2: Generate Captions after audio
+          // Generate Captions after audio
           const captions = await step.run("Generate Captions", async () => {
             const captionResponse = await axios.post(
               `${process.env.NEXT_PUBLIC_API_URL}/api/generate-caption`,
@@ -105,21 +129,21 @@ export const generateShort = inngest.createFunction(
           return { audio, captions };
         })(),
 
-        // Step 3: Generate Images in parallel
+        // Generate Images in parallel
         step.run("Generate Images in Batches", async () => {
           const batchSize = 3; // Number of requests to send at a time
           const images = [];
           const batches = [];
 
           // Divide videoScript into batches
-          for (let i = 0; i < videoScript.length; i += batchSize) {
-            batches.push(videoScript.slice(i, i + batchSize));
+          for (let i = 0; i < videoScriptResponse.length; i += batchSize) {
+            batches.push(videoScriptResponse.slice(i, i + batchSize));
           }
 
           // Process each batch sequentially
           for (const batch of batches) {
             const batchPromises = batch.map((scene) => {
-              const index = videoScript.indexOf(scene); // Preserve global index
+              const index = videoScriptResponse.indexOf(scene); // Preserve global index
               return generateImageWithRetry(scene, index);
             });
 
@@ -136,11 +160,12 @@ export const generateShort = inngest.createFunction(
       const filteredImg = images.filter((img) => img !== null);
       const { audio, captions } = audioUrl; // Destructure from combined parallel promise
 
-      // Step 4: Update the Database
+      // Update the Database
       await step.run("Update Database", async () => {
         await db
           .update(VideoData)
           .set({
+            script: videoScriptResponse,
             audioData: audio,
             caption: captions,
             imageData: filteredImg,
@@ -149,7 +174,7 @@ export const generateShort = inngest.createFunction(
           .where(eq(id, VideoData?.id));
       });
 
-      // Step 5: Update User Credits
+      // Update User Credits
       await step.run("Update Credits", async () => {
         await db
           .update(Users)

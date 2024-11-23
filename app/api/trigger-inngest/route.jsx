@@ -9,13 +9,13 @@ export async function POST(req) {
   try {
     const body = await req.json(); // Parse the request body for data
 
-    const { formData, videoScript, user, userDetail } = body;
+    const { formData, user, userDetail } = body;
 
     // Step 1: Create a new row with placeholders for NOT NULL fields
     const result = await db
       .insert(VideoData)
       .values({
-        script: videoScript,
+        script: { script: "Video Script Placeholder" },
         audioData: "placeholder_audio.mp3", // Placeholder audio file name
         caption: { text: "Placeholder caption" }, // Placeholder caption
         imageData: ["placeholder_image_1.jpg", "placeholder_image_2.jpg"], // Placeholder image data
@@ -34,7 +34,7 @@ export async function POST(req) {
     // Step 2: Trigger Inngest function with the generated ID
     await inngest.send({
       name: "short.generate", // Must match the event name in your Inngest function
-      data: { formData, videoScript, id, user, userDetail }, // Pass the necessary data
+      data: { formData, id, user, userDetail }, // Pass the necessary data
     });
 
     return NextResponse.json({ id });

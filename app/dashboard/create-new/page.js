@@ -17,7 +17,6 @@ import { useUser } from "@clerk/nextjs";
 function CreateNew() {
   const [formData, setFormData] = useState({});
   const [loading, setLoading] = useState(false);
-  const [videoScript, setVideoScript] = useState(null);
   const [playVideo, setPlayVideo] = useState(false);
   const [videoId, setVideoId] = useState();
   const [polling, setPolling] = useState(false);
@@ -49,18 +48,10 @@ function CreateNew() {
         return;
       }
 
-      const prompt = `Generate a ${duration}-long video script on "${topic}" as a JSON array with:
-        1. "contentText": A detailed narrative for each scene.
-        2. "imagePrompt": A detailed ${style} image description aligned with the scene.`;
-
-      const { data } = await axios.post("/api/get-video-script", { prompt });
-      const videoScript = data.result;
-      setVideoData({ videoScript });
-      setVideoScript(videoScript);
+      // setVideoData({ videoScript });
 
       const response = await axios.post("/api/trigger-inngest", {
         formData,
-        videoScript,
         user: user,
         userDetail,
       });
