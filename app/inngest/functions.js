@@ -13,13 +13,14 @@ export const generateShort = inngest.createFunction(
     const { formData, id, user, userDetail } = event.data;
 
     try {
-      const prompt = `Generate a ${formData?.duration}-long video script on "${formData?.topic}" as a JSON array with:
-        1. "contentText": A detailed narrative for each scene, dont use one line content.
-        2. "imagePrompt": A detailed ${formData?.style} image description aligned with the scene. Use max only 3 imagePrompt for more than 30 sec duration and use 2 imagePrompt for 30 sec or less than 30sec duration`;
-
+      // Step 1: Generate Video Script
       const videoScriptResponse = await step.run(
         "Generate VideoScript",
         async () => {
+          const prompt = `Generate a ${formData?.duration}-long video script on "${formData?.topic}" as a JSON array with:
+          1. "contentText": A detailed narrative for each scene, dont use one line content.
+          2. "imagePrompt": A detailed ${formData?.style} image description aligned with the scene. Use max only 3 imagePrompt for more than 30 sec duration and use 2 imagePrompt for 30 sec or less than 30sec duration`;
+
           const response = await axios.post(
             `${process.env.NEXT_PUBLIC_API_URL}/api/get-video-script`,
             JSON.stringify({ prompt }),
@@ -32,6 +33,7 @@ export const generateShort = inngest.createFunction(
         }
       );
 
+      // Step 2: Generate Audio
       const audio = await step.run("Generate Audio", async () => {
         const audioResponse = await axios.post(
           `${process.env.NEXT_PUBLIC_API_URL}/api/generate-audio`,
@@ -47,6 +49,7 @@ export const generateShort = inngest.createFunction(
         return audioResponse.data.result;
       });
 
+      // Step 3: Generate Captions
       const captions = await step.run("Generate Captions", async () => {
         const captionResponse = await axios.post(
           `${process.env.NEXT_PUBLIC_API_URL}/api/generate-caption`,
@@ -58,38 +61,61 @@ export const generateShort = inngest.createFunction(
         return captionResponse.data.result;
       });
 
-      const images = await step.run("Generate Images", async () => {
-        const allImages = [];
-
-        for (const scene of videoScriptResponse) {
+      // Step 4: Generate Images (Base64)
+      const imagesBase64 = await step.run("Generate Images", async () => {
+        const imagePromises = videoScriptResponse.map(async (scene) => {
           try {
-            const res = await axios.post(
-              `${process.env.NEXT_PUBLIC_API_URL}/api/generate-image-primary`,
+            const apiUrl = getApiUrlByStyle(formData.style);
+            const triggerWord = getTriggerWordByStyle(formData.style);
+
+            console.log("GENERATING ---- ", scene.imagePrompt);
+
+            const response = await axios.post(
+              apiUrl,
+              { inputs: `${triggerWord}, ${scene.imagePrompt}` },
               {
-                prompt: scene.imagePrompt,
-                style: formData.style,
+                headers: {
+                  Authorization: `Bearer ${process.env.HUGGING_FACE_API_KEY}`,
+                },
+                responseType: "arraybuffer",
               }
             );
 
-            if (res?.data?.downloadUrl) {
-              allImages.push(res.data.downloadUrl);
-            } else {
-              console.warn(
-                "Image generation failed for prompt:",
-                scene.imagePrompt
-              );
-              allImages.push(null); // Add null for failed generations
-            }
+            const imageBase64 = Buffer.from(response.data, "binary").toString(
+              "base64"
+            );
+            return `data:image/png;base64,${imageBase64}`;
           } catch (error) {
-            console.error("Error generating image for prompt:", error.message);
-            allImages.push(null); // Add null in case of an error
+            console.error(
+              "Image generation failed:",
+              scene.imagePrompt,
+              error.message
+            );
+            return null;
           }
-        }
+        });
 
-        // Filter out any null values from failed generations
-        return allImages.filter((img) => img !== null);
+        return (await Promise.all(imagePromises)).filter((img) => img !== null);
       });
 
+      // Step 5: Upload Images to Firebase
+      const firebaseUrls = await step.run(
+        "Upload Images to Firebase",
+        async () => {
+          const uploadResponse = await axios.post(
+            `${process.env.NEXT_PUBLIC_API_URL}/api/generate-image-primary`,
+            { images: imagesBase64 },
+            { headers: { "Content-Type": "application/json" } }
+          );
+
+          if (!uploadResponse?.data?.downloadUrls) {
+            throw new Error("Firebase upload failed.");
+          }
+          return uploadResponse.data.downloadUrls;
+        }
+      );
+
+      // Step 6: Update Database
       await step.run("Update Database", async () => {
         await db
           .update(VideoData)
@@ -97,12 +123,13 @@ export const generateShort = inngest.createFunction(
             script: videoScriptResponse,
             audioData: audio,
             caption: captions,
-            imageData: images,
+            imageData: firebaseUrls,
             status: "completed",
           })
           .where(eq(VideoData.id, id));
       });
 
+      // Step 7: Deduct User Credits
       await step.run("Update Credits", async () => {
         await db
           .update(Users)
@@ -110,7 +137,7 @@ export const generateShort = inngest.createFunction(
           .where(eq(Users.email, user?.primaryEmailAddress?.emailAddress));
       });
 
-      return { status: "success", audio, captions, images };
+      return { status: "success", audio, captions, firebaseUrls };
     } catch (error) {
       console.error("Error in Inngest generateShort function:", error);
 
@@ -125,3 +152,43 @@ export const generateShort = inngest.createFunction(
     }
   }
 );
+
+// Helper Functions
+function getApiUrlByStyle(style) {
+  const styles = {
+    Anime:
+      "https://api-inference.huggingface.co/models/strangerzonehf/Flux-Animex-v2-LoRA",
+    "Cartoon Mix":
+      "https://api-inference.huggingface.co/models/prithivMLmods/Flux.1-Dev-Realtime-Toon-Mix",
+    "Door Eye":
+      "https://api-inference.huggingface.co/models/prithivMLmods/Flux.1-Dev-Pov-DoorEye-LoRA",
+    Realistic:
+      "https://api-inference.huggingface.co/models/prithivMLmods/Flux-Realism-FineDetailed",
+    "Pixar 3D":
+      "https://api-inference.huggingface.co/models/prithivMLmods/Canopus-Pixar-3D-Flux-LoRA",
+    "Pencil Sketch":
+      "https://api-inference.huggingface.co/models/prithivMLmods/Super-Pencil-Flux-LoRA",
+    "Retro Pixel":
+      "https://api-inference.huggingface.co/models/prithivMLmods/Retro-Pixel-Flux-LoRA",
+    Abstract:
+      "https://api-inference.huggingface.co/models/prithivMLmods/Abstract-Cartoon-Flux-LoRA",
+  };
+  return (
+    styles[style] ||
+    "https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-dev"
+  );
+}
+
+function getTriggerWordByStyle(style) {
+  const triggers = {
+    Anime: "Animex",
+    "Cartoon Mix": "toon mix",
+    "Door Eye": "look in 2",
+    Realistic: "Fine Detailed",
+    "Pixar 3D": "Pixar 3D",
+    "Pencil Sketch": "Simple Pencil",
+    "Retro Pixel": "Retro Pixel",
+    Abstract: "Abstract",
+  };
+  return triggers[style] || "midjourney mix";
+}
