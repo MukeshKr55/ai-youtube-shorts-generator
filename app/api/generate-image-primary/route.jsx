@@ -5,7 +5,6 @@ import { getDownloadURL, ref, uploadString } from "firebase/storage";
 
 export async function POST(req) {
   const { prompt, style } = await req.json();
-  console.log("STYLE:", style);
 
   if (!prompt) {
     return NextResponse.json({ message: "Prompt is required" });
@@ -14,13 +13,23 @@ export async function POST(req) {
   let apiUrl = "";
   let triggerWord = "";
 
-  // Determine the API URL and trigger word based on style
   switch (style) {
     case "Anime":
-    case "Digital Art":
       apiUrl =
         "https://api-inference.huggingface.co/models/strangerzonehf/Flux-Animex-v2-LoRA";
       triggerWord = "Animex";
+      break;
+
+    case "Cartoon Mix":
+      apiUrl =
+        "https://api-inference.huggingface.co/models/prithivMLmods/Flux.1-Dev-Realtime-Toon-Mix";
+      triggerWord = "toon mix";
+      break;
+
+    case "Door Eye":
+      apiUrl =
+        "https://api-inference.huggingface.co/models/prithivMLmods/Flux.1-Dev-Pov-DoorEye-LoRA";
+      triggerWord = "look in 2";
       break;
 
     case "Realistic":
@@ -53,15 +62,9 @@ export async function POST(req) {
       triggerWord = "Abstract";
       break;
 
-    case "Super Blend":
-      apiUrl =
-        "https://api-inference.huggingface.co/models/strangerzonehf/Flux-Super-Blend-LoRA";
-      triggerWord = "Super Blend";
-      break;
-
     default:
       apiUrl =
-        "https://api-inference.huggingface.co/models/strangerzonehf/Flux-Midjourney-Mix-LoRA";
+        "https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-dev";
       triggerWord = "midjourney mix";
       break;
   }
@@ -92,7 +95,10 @@ export async function POST(req) {
 
     return NextResponse.json({ downloadUrl });
   } catch (e) {
-    console.error("Error generating image-c:", e);
-    return NextResponse.json({ Error: e.message || "An error occurred" });
+    console.error("Error generating image-c:", e.message);
+    return NextResponse.json(
+      { error: e.message || "An error occurred" },
+      { status: e.response?.status || 500 }
+    );
   }
 }
