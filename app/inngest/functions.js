@@ -91,7 +91,7 @@ export const generateShort = inngest.createFunction(
       );
 
       // (Generate Audio) and (Generate Images) run in parallel
-      const [audioUrl, images] = await Promise.all([
+      const [audioData, images] = await Promise.all([
         // Step 1: Generate Audio (and proceed to generate captions)
         (async () => {
           const audio = await step.run(
@@ -174,7 +174,7 @@ export const generateShort = inngest.createFunction(
       ]);
 
       const filteredImg = images.filter((img) => img !== null);
-      const { audio, captions } = audioUrl; // Destructure from combined parallel promise
+      const { audio, captions } = audioData; // Destructure from combined parallel promise
 
       // Update the Database
       await step.run("Update Database", async () => {
