@@ -4,18 +4,6 @@ import { db } from "@/config/db";
 import { eq } from "drizzle-orm";
 import { Users, VideoData } from "@/config/schema";
 
-// Retry mechanism for failed requests
-async function retryRequest(fn, retries = 3) {
-  for (let i = 0; i < retries; i++) {
-    try {
-      return await fn();
-    } catch (err) {
-      console.error(`Retry ${i + 1} failed:`, err.message);
-      if (i === retries - 1) throw err;
-    }
-  }
-}
-
 export const generateShort = inngest.createFunction(
   { id: "Generate Short Video" },
   {
@@ -82,18 +70,15 @@ export const generateShort = inngest.createFunction(
 
             console.log("GENERATING ---- ", scene.imagePrompt);
 
-            const response = await retryRequest(() =>
-              axios.post(
-                apiUrl,
-                { inputs: `${triggerWord}, ${scene.imagePrompt}` },
-                {
-                  headers: {
-                    Authorization: `Bearer ${process.env.HUGGING_FACE_API_KEY}`,
-                  },
-                  responseType: "arraybuffer",
-                  timeout: 10000, // 10-second timeout
-                }
-              )
+            const response = await axios.post(
+              apiUrl,
+              { inputs: `${triggerWord}, ${scene.imagePrompt}` },
+              {
+                headers: {
+                  Authorization: `Bearer ${process.env.HUGGING_FACE_API_KEY}`,
+                },
+                responseType: "arraybuffer",
+              }
             );
 
             const imageBase64 = Buffer.from(response.data, "binary").toString(
