@@ -94,25 +94,29 @@ export const generateShort = inngest.createFunction(
       const [audioUrl, images] = await Promise.all([
         // Step 1: Generate Audio (and proceed to generate captions)
         (async () => {
-          const audio = await step.run("Generate Audio", async () => {
-            const audioResponse = await axios.post(
-              `${process.env.NEXT_PUBLIC_API_URL}/api/generate-audio`,
-              {
-                text: videoScriptResponse
-                  .map((item) => item.contentText)
-                  .join(" "), // Concatenate all script content
-                id,
-                voice: formData.voice,
-              }
-            );
-
-            if (!audioResponse?.data?.result) {
-              throw new Error(
-                "Audio generation failed. Audio URL is undefined."
+          const audio = await step.run(
+            "Generate Audio",
+            { timeout: "90s" },
+            async () => {
+              const audioResponse = await axios.post(
+                `${process.env.NEXT_PUBLIC_API_URL}/api/generate-audio`,
+                {
+                  text: videoScriptResponse
+                    .map((item) => item.contentText)
+                    .join(" "), // Concatenate all script content
+                  id,
+                  voice: formData.voice,
+                }
               );
+
+              if (!audioResponse?.data?.result) {
+                throw new Error(
+                  "Audio generation failed. Audio URL is undefined."
+                );
+              }
+              return audioResponse.data.result;
             }
-            return audioResponse.data.result;
-          });
+          );
 
           // Generate Captions after audio
           const captions = await step.run("Generate Captions", async () => {
@@ -136,31 +140,37 @@ export const generateShort = inngest.createFunction(
         })(),
 
         // Generate Images in parallel
-        step.run("Generate Images in Batches", async () => {
-          const batchSize = 3; // Number of requests to send at a time
-          const images = [];
-          const batches = [];
+        step.run(
+          "Generate Images in Batches",
+          { timeout: "500s" },
+          async () => {
+            const batchSize = 3; // Number of requests to send at a time
+            const images = [];
+            const batches = [];
 
-          // Divide videoScript into batches
-          for (let i = 0; i < videoScriptResponse.length; i += batchSize) {
-            batches.push(videoScriptResponse.slice(i, i + batchSize));
+            // Divide videoScript into batches
+            for (let i = 0; i < videoScriptResponse.length; i += batchSize) {
+              batches.push(videoScriptResponse.slice(i, i + batchSize));
+            }
+
+            // Process each batch sequentially
+            for (const batch of batches) {
+              const batchPromises = batch.map((scene) => {
+                const index = videoScriptResponse.indexOf(scene); // Preserve global index
+                return generateImageWithRetry(scene, index);
+              });
+
+              // Wait for all requests in the batch to complete
+              const batchResults = await Promise.all(batchPromises);
+              images.push(...batchResults);
+            }
+
+            // Sort images by index and return their URLs
+            return images
+              .sort((a, b) => a.index - b.index)
+              .map((res) => res.url);
           }
-
-          // Process each batch sequentially
-          for (const batch of batches) {
-            const batchPromises = batch.map((scene) => {
-              const index = videoScriptResponse.indexOf(scene); // Preserve global index
-              return generateImageWithRetry(scene, index);
-            });
-
-            // Wait for all requests in the batch to complete
-            const batchResults = await Promise.all(batchPromises);
-            images.push(...batchResults);
-          }
-
-          // Sort images by index and return their URLs
-          return images.sort((a, b) => a.index - b.index).map((res) => res.url);
-        }),
+        ),
       ]);
 
       const filteredImg = images.filter((img) => img !== null);
