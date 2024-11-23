@@ -3,6 +3,7 @@ import { inngest } from "./client";
 import { db } from "@/config/db";
 import { eq } from "drizzle-orm";
 import { Users, VideoData } from "@/config/schema";
+import { chatSession } from "@/config/AiModel";
 
 export const generateShort = inngest.createFunction(
   { id: "Generate Short Video" },
@@ -13,43 +14,105 @@ export const generateShort = inngest.createFunction(
     const { formData, id, user, userDetail } = event.data;
 
     try {
+      console.log("[START] Generating short video process initiated.");
+
       // Step 1: Generate Video Script
+      console.log("[INFO] Step 1: Generating video script...");
       const videoScriptResponse = await step.run(
         "Generate VideoScript",
         async () => {
           const prompt = `Generate a ${formData?.duration}-long video script on "${formData?.topic}" as a JSON array with:
-          1. "contentText": A detailed narrative for each scene, dont use one line content.
-          2. "imagePrompt": A detailed ${formData?.style} image description aligned with the scene. Use max only 3 imagePrompt for more than 30 sec duration and use 2 imagePrompt for 30 sec or less than 30sec duration`;
+          1. "contentText": A detailed narrative for each scene, don't use one-line content.
+          2. "imagePrompt": A detailed ${formData?.style} image description aligned with the scene.`;
 
-          const response = await axios.post(
-            `${process.env.NEXT_PUBLIC_API_URL}/api/get-video-script`,
-            JSON.stringify({ prompt }),
-            { headers: { "Content-Type": "application/json" } }
-          );
-          if (!response?.data?.result) {
-            throw new Error("Video script generation failed.");
-          }
-          return response.data.result;
+          const result = await chatSession.sendMessage(prompt);
+          const rawResponse = await result.response.text();
+          const sanitizedResponse = rawResponse
+            .replace(/\/\/.*?(\n|$)/g, "") // Remove comments
+            .replace(/[\r\n\t]/g, "") // Remove newlines and tabs
+            .trim();
+          console.log("[INFO] Video script generated successfully.");
+          return JSON.parse(sanitizedResponse);
         }
       );
 
-      // Step 2: Generate Audio
-      const audio = await step.run("Generate Audio", async () => {
-        const audioResponse = await axios.post(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/generate-audio`,
-          {
-            text: videoScriptResponse.map((item) => item.contentText).join(" "),
-            id,
-            voice: formData.voice,
+      // Parallel Tasks
+      console.log(
+        "[INFO] Starting parallel tasks for audio and image generation..."
+      );
+      const [audio, imagesBase64] = await Promise.all([
+        // Step 2: Generate Audio
+        step.run("Generate Audio", async () => {
+          console.log("[INFO] Step 2: Generating audio...");
+          const audioResponse = await axios.post(
+            `${process.env.NEXT_PUBLIC_API_URL}/api/generate-audio`,
+            {
+              text: videoScriptResponse
+                .map((item) => item.contentText)
+                .join(" "),
+              id,
+              voice: formData.voice,
+            }
+          );
+          if (!audioResponse?.data?.result) {
+            throw new Error("Audio generation failed.");
           }
-        );
-        if (!audioResponse?.data?.result) {
-          throw new Error("Audio generation failed.");
-        }
-        return audioResponse.data.result;
-      });
+          console.log("[INFO] Audio generated successfully.");
+          return audioResponse.data.result;
+        }),
 
-      // Step 3: Generate Captions
+        // Step 4: Generate Images
+        step.run("Generate Images", async () => {
+          console.log("[INFO] Step 4: Generating images...");
+          const imagePromises = videoScriptResponse.map(async (scene) => {
+            try {
+              const apiUrl = getApiUrlByStyle(formData.style);
+              const triggerWord = getTriggerWordByStyle(formData.style);
+
+              const response = await axios.post(
+                apiUrl,
+                { inputs: `${triggerWord}, ${scene.imagePrompt}` },
+                {
+                  headers: {
+                    Authorization: `Bearer ${process.env.HUGGING_FACE_API_KEY}`,
+                  },
+                  responseType: "arraybuffer",
+                }
+              );
+
+              const imageBase64 = Buffer.from(response.data, "binary").toString(
+                "base64"
+              );
+              console.log(
+                `[INFO] Image generated successfully for prompt: ${scene.imagePrompt}`
+              );
+              return `data:image/png;base64,${imageBase64}`;
+            } catch (error) {
+              console.error(
+                "[ERROR] Image generation failed:",
+                scene.imagePrompt,
+                error.message
+              );
+              return null;
+            }
+          });
+
+          const generatedImages = await Promise.all(imagePromises);
+          const successfulImages = generatedImages.filter(
+            (img) => img !== null
+          );
+          if (successfulImages.length !== videoScriptResponse.length) {
+            throw new Error(
+              `Image generation incomplete. Expected ${videoScriptResponse.length} images, but got ${successfulImages.length}.`
+            );
+          }
+          console.log("[INFO] All images generated successfully.");
+          return successfulImages;
+        }),
+      ]);
+
+      // Step 3: Generate Captions (depends on audio)
+      console.log("[INFO] Step 3: Generating captions...");
       const captions = await step.run("Generate Captions", async () => {
         const captionResponse = await axios.post(
           `${process.env.NEXT_PUBLIC_API_URL}/api/generate-caption`,
@@ -58,60 +121,12 @@ export const generateShort = inngest.createFunction(
         if (!captionResponse?.data?.result) {
           throw new Error("Caption generation failed.");
         }
+        console.log("[INFO] Captions generated successfully.");
         return captionResponse.data.result;
       });
 
-      // Step 4: Generate Images (Base64)
-      const imagesBase64 = await step.run("Generate Images", async () => {
-        const imagePromises = videoScriptResponse.map(async (scene) => {
-          try {
-            const apiUrl = getApiUrlByStyle(formData.style);
-            const triggerWord = getTriggerWordByStyle(formData.style);
-
-            console.log("GENERATING ---- ", scene.imagePrompt);
-
-            const response = await axios.post(
-              apiUrl,
-              { inputs: `${triggerWord}, ${scene.imagePrompt}` },
-              {
-                headers: {
-                  Authorization: `Bearer ${process.env.HUGGING_FACE_API_KEY}`,
-                },
-                responseType: "arraybuffer",
-              }
-            );
-
-            const imageBase64 = Buffer.from(response.data, "binary").toString(
-              "base64"
-            );
-            return `data:image/png;base64,${imageBase64}`;
-          } catch (error) {
-            console.error(
-              "Image generation failed:",
-              scene.imagePrompt,
-              error.message
-            );
-            return null; // Ensure consistency by returning `null` on failure
-          }
-        });
-
-        // Wait for all image generations to complete
-        const generatedImages = await Promise.all(imagePromises);
-
-        // Filter out failed generations
-        const successfulImages = generatedImages.filter((img) => img !== null);
-
-        // Validate the number of successfully generated images
-        if (successfulImages.length !== videoScriptResponse.length) {
-          throw new Error(
-            `Image generation incomplete. Expected ${videoScriptResponse.length} images, but got ${successfulImages.length}.`
-          );
-        }
-
-        return successfulImages;
-      });
-
-      // Step 5: Upload Images to Firebase
+      // Step 5: Upload Images to Firebase (depends on images)
+      console.log("[INFO] Step 5: Uploading images to Firebase...");
       const firebaseUrls = await step.run(
         "Upload Images to Firebase",
         async () => {
@@ -124,11 +139,13 @@ export const generateShort = inngest.createFunction(
           if (!uploadResponse?.data?.downloadUrls) {
             throw new Error("Firebase upload failed.");
           }
+          console.log("[INFO] Images uploaded to Firebase successfully.");
           return uploadResponse.data.downloadUrls;
         }
       );
 
       // Step 6: Update Database
+      console.log("[INFO] Step 6: Updating database...");
       await step.run("Update Database", async () => {
         await db
           .update(VideoData)
@@ -140,25 +157,30 @@ export const generateShort = inngest.createFunction(
             status: "completed",
           })
           .where(eq(VideoData.id, id));
+        console.log("[INFO] Database updated successfully.");
       });
 
       // Step 7: Deduct User Credits
+      console.log("[INFO] Step 7: Deducting user credits...");
       await step.run("Update Credits", async () => {
         await db
           .update(Users)
           .set({ credits: userDetail.credits - 10 })
           .where(eq(Users.email, user?.primaryEmailAddress?.emailAddress));
+        console.log("[INFO] User credits updated successfully.");
       });
 
+      console.log("[SUCCESS] Short video generation process completed.");
       return { status: "success", audio, captions, firebaseUrls };
     } catch (error) {
-      console.error("Error in Inngest generateShort function:", error);
+      console.error("[ERROR] Error in Inngest generateShort function:", error);
 
       await step.run("Handle Failure", async () => {
         await db
           .update(VideoData)
           .set({ status: "failed" })
           .where(eq(VideoData.id, id));
+        console.log("[INFO] Failure status updated in the database.");
       });
 
       throw error;
