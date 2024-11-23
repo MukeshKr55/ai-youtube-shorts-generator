@@ -4,6 +4,18 @@ import { db } from "@/config/db";
 import { eq } from "drizzle-orm";
 import { Users, VideoData } from "@/config/schema";
 
+// Retry mechanism for failed requests
+async function retryRequest(fn, retries = 3) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      console.error(`Retry ${i + 1} failed:`, err.message);
+      if (i === retries - 1) throw err;
+    }
+  }
+}
+
 export const generateShort = inngest.createFunction(
   { id: "Generate Short Video" },
   {
@@ -70,15 +82,18 @@ export const generateShort = inngest.createFunction(
 
             console.log("GENERATING ---- ", scene.imagePrompt);
 
-            const response = await axios.post(
-              apiUrl,
-              { inputs: `${triggerWord}, ${scene.imagePrompt}` },
-              {
-                headers: {
-                  Authorization: `Bearer ${process.env.HUGGING_FACE_API_KEY}`,
-                },
-                responseType: "arraybuffer",
-              }
+            const response = await retryRequest(() =>
+              axios.post(
+                apiUrl,
+                { inputs: `${triggerWord}, ${scene.imagePrompt}` },
+                {
+                  headers: {
+                    Authorization: `Bearer ${process.env.HUGGING_FACE_API_KEY}`,
+                  },
+                  responseType: "arraybuffer",
+                  timeout: 10000, // 10-second timeout
+                }
+              )
             );
 
             const imageBase64 = Buffer.from(response.data, "binary").toString(
@@ -91,11 +106,24 @@ export const generateShort = inngest.createFunction(
               scene.imagePrompt,
               error.message
             );
-            return null;
+            return null; // Ensure consistency by returning `null` on failure
           }
         });
 
-        return (await Promise.all(imagePromises)).filter((img) => img !== null);
+        // Wait for all image generations to complete
+        const generatedImages = await Promise.all(imagePromises);
+
+        // Filter out failed generations
+        const successfulImages = generatedImages.filter((img) => img !== null);
+
+        // Validate the number of successfully generated images
+        if (successfulImages.length !== videoScriptResponse.length) {
+          throw new Error(
+            `Image generation incomplete. Expected ${videoScriptResponse.length} images, but got ${successfulImages.length}.`
+          );
+        }
+
+        return successfulImages;
       });
 
       // Step 5: Upload Images to Firebase
