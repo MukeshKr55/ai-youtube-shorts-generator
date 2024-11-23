@@ -71,18 +71,15 @@ export const generateShort = inngest.createFunction(
         "Generate VideoScript",
         async () => {
           const response = await axios.post(
-            `${process.env.NEXT_PUBLIC_API_URL}/api/generate-audio`,
+            `${process.env.NEXT_PUBLIC_API_URL}/api/get-video-script`,
             JSON.stringify({
-              text: videoScriptResponse
-                .map((item) => item.contentText)
-                .join(" "),
-              id,
-              voice: formData.voice,
+              prompt: prompt,
             }),
             {
               headers: {
                 "Content-Type": "application/json",
               },
+              maxRedirects: 0, // Disable automatic redirects
             }
           );
 
