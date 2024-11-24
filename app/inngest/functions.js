@@ -61,43 +61,60 @@ export const generateShort = inngest.createFunction(
           return audioResponse.data.result;
         }),
 
-        // Step 4: Generate Images
+        // Step 4: Generate Images in Batches of 3
         step.run("Generate Images", async () => {
-          console.log("[INFO] Step 4: Generating images...");
-          const imagePromises = videoScriptResponse.map(async (scene) => {
-            try {
-              const apiUrl = getApiUrlByStyle(formData.style);
-              const triggerWord = getTriggerWordByStyle(formData.style);
+          console.log("[INFO] Step 4: Generating images in batches...");
 
-              const response = await axios.post(
-                apiUrl,
-                { inputs: `${triggerWord}, ${scene.imagePrompt}` },
-                {
-                  headers: {
-                    Authorization: `Bearer ${process.env.HUGGING_FACE_API_KEY}`,
-                  },
-                  responseType: "arraybuffer",
-                }
-              );
+          const batchSize = 3; // Limit per Hugging Face API
+          const apiUrl = getApiUrlByStyle(formData.style);
+          const triggerWord = getTriggerWordByStyle(formData.style);
 
-              const imageBase64 = Buffer.from(response.data, "binary").toString(
-                "base64"
-              );
-              console.log(
-                `[INFO] Image generated successfully for prompt: ${scene.imagePrompt}`
-              );
-              return `data:image/png;base64,${imageBase64}`;
-            } catch (error) {
-              console.error(
-                "[ERROR] Image generation failed:",
-                scene.imagePrompt,
-                error.message
-              );
-              return null;
-            }
-          });
+          const processBatch = async (batch) => {
+            const batchPromises = batch.map(async (scene) => {
+              try {
+                const response = await axios.post(
+                  apiUrl,
+                  { inputs: `${triggerWord}, ${scene.imagePrompt}` },
+                  {
+                    headers: {
+                      Authorization: `Bearer ${process.env.HUGGING_FACE_API_KEY}`,
+                    },
+                    responseType: "arraybuffer",
+                  }
+                );
 
-          const generatedImages = await Promise.all(imagePromises);
+                const imageBase64 = Buffer.from(
+                  response.data,
+                  "binary"
+                ).toString("base64");
+                console.log(
+                  `[INFO] Image generated successfully for prompt: ${scene.imagePrompt}`
+                );
+                return `data:image/png;base64,${imageBase64}`;
+              } catch (error) {
+                console.error(
+                  "[ERROR] Image generation failed:",
+                  scene.imagePrompt,
+                  error.message
+                );
+                return null; // Return null for failed images
+              }
+            });
+
+            return Promise.all(batchPromises);
+          };
+
+          const batches = [];
+          for (let i = 0; i < videoScriptResponse.length; i += batchSize) {
+            batches.push(videoScriptResponse.slice(i, i + batchSize));
+          }
+
+          const generatedImages = [];
+          for (const batch of batches) {
+            const batchResults = await processBatch(batch);
+            generatedImages.push(...batchResults);
+          }
+
           const successfulImages = generatedImages.filter(
             (img) => img !== null
           );
@@ -106,7 +123,8 @@ export const generateShort = inngest.createFunction(
               `Image generation incomplete. Expected ${videoScriptResponse.length} images, but got ${successfulImages.length}.`
             );
           }
-          console.log("[INFO] All images generated successfully.");
+
+          console.log("[INFO] All images generated successfully in batches.");
           return successfulImages;
         }),
       ]);

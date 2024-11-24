@@ -36,7 +36,7 @@ function Sidebar() {
   const path = usePathname();
 
   return (
-    <div className="w-64 h-screen shadow-md p-5">
+    <div className="w-64 h-screen shadow-md p-5 bg-purple-50">
       <div className="grid gap-2">
         {MenuOpt.map((item, idx) => (
           <Link key={idx} href={item.path}>

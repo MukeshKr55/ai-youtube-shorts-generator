@@ -19,9 +19,11 @@ export default function Home() {
       <div className="p-3 px-5 flex items-center justify-between shadow-md bg-white">
         <div className="flex gap-3 items-center">
           <Image src={"/logo.svg"} width={50} height={50} alt="Logo" />
-          <h2 className="hidden md:block font-bold text-2xl text-gray-800">
-            AI Shorts Generator
-          </h2>
+          <Link href={"/"}>
+            <h2 className="hidden md:block font-bold text-2xl text-gray-800">
+              AI Shorts Generator
+            </h2>
+          </Link>
         </div>
         <div className="flex gap-3 items-center">
           <Link href={"/dashboard"}>

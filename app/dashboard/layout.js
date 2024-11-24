@@ -31,7 +31,7 @@ function DashboardLayout({ children }) {
   return (
     <UserDetailContext.Provider value={{ userDetail, setUserDetail }}>
       <VideoDataContext.Provider value={{ videoData, setVideoData }}>
-        <div className="">
+        <div className="bg-gradient-to-b from-white via-purple-100 to-gray-100 min-h-screen">
           <div className="hidden md:block h-screen bg-white fixed mt-[65px] w-64">
             <Sidebar />
           </div>
