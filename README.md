@@ -102,6 +102,8 @@ Check out the live demo here: [AI YouTube Shorts Generator](https://ai-youtube-s
 
 ### Dashboard  
 ![Dashboard Screenshot](https://github.com/user-attachments/assets/9e00bab7-c0a8-4418-9638-3a0a4b5ec35e)
+![Player](https://github.com/user-attachments/assets/1b29668f-1d11-44fe-9dc1-49e1a3eaefa1)
+
 
 
 ### Video Output  
