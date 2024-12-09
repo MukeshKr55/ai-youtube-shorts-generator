@@ -1,36 +1,110 @@
-This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# AI YouTube Shorts Generator  
 
-## Getting Started
+🚀 **AI YouTube Shorts Generator** is a SaaS platform that simplifies creating engaging YouTube Shorts using AI-powered technologies. Users can generate high-quality, customized videos by selecting a content topic, image style, voice, and more. The platform automates the entire process, delivering a ready-to-use video in just a few minutes.  
 
-First, run the development server:
+## 🌟 Features  
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- **Free Credits:** Users receive 30 credits upon signup (each short costs 10 credits).  
+- **Customizability:**  
+  - Choose from predefined or custom topics.  
+  - Select image styles (realistic, anime, LEGO, etc.).  
+  - Customize voices and video duration.  
+- **AI-Powered Generation:** Fully automated process for script, audio, captions, and images.  
+- **Efficient Processing:** Background tasks are handled with workers, ensuring a smooth user experience.  
+- **Fast Results:** Videos are ready in 2-3 minutes.  
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🛠️ Tech Stack  
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+- **Frontend:**  
+  - Next.js  
+  - TailwindCSS  
 
-This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
+- **Backend:**  
+  - PostgreSQL  
+  - Inngest (for background workers)  
+  - Edge-TTS (for Text-to-Speech API)  
+  - Assembly AI (for captions)  
 
-## Learn More
+- **AI Models:**  
+  - GeminiAI (for script generation)  
+  - Flux-1 Hugging Face model (for images)  
 
-To learn more about Next.js, take a look at the following resources:
+- **Video Rendering:**  
+  - Remotion (to convert generated content into video format)  
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 🎮 How It Works  
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
+1. **User Flow:**  
+   - Login/signup to the platform.  
+   - Receive 30 free credits.  
+   - Navigate to the **Create Page** and select:  
+     - Content topic (predefined or custom).  
+     - Image style (realistic, anime, LEGO, etc.).  
+     - Voice type and video duration.  
+   - Click "Generate" and wait for 2-3 minutes.  
 
-## Deploy on Vercel
+2. **Behind the Scenes:**  
+   - Script is generated using **GeminiAI**.  
+   - Audio is processed using **Edge-TTS**.  
+   - Captions are transcribed using **Assembly AI**.  
+   - Images are created with the **Flux-1 Hugging Face model**.  
+   - All tasks run as background workers via **Inngest**.  
+   - The final video is rendered using **Remotion**.  
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+3. **Dashboard:**  
+   - Generated videos are saved and displayed in the user dashboard.  
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
+## 💻 Installation  
+
+### Prerequisites  
+Ensure you have the following installed:  
+- Node.js  
+- PostgreSQL  
+- Yarn or npm  
+
+### Steps  
+
+1. **Clone the repository:**
+   ```bash  
+   git clone https://github.com/MukeshKr55/ai-youtube-shorts-generator.git  
+   cd ai-youtube-shorts-generator
+   ```
+   
+2. **Install dependencies:**
+    ```bash
+    yarn install  
+    # or  
+    npm install  
+    ```
+    
+ 3. **Set up the database:**
+    - Create a PostgreSQL database.
+    - Update the .env file with your database connection string and other required environment variables.
+
+4. **Start the development server:**
+    ```bash
+    yarn dev  
+    # or  
+    npm run dev
+    ```
+
+5. **Visit the application at http://localhost:3000**
+
+## 🎥 Demo  
+
+Check out the live demo here: [AI YouTube Shorts Generator](https://ai-youtube-shorts-generator-coral.vercel.app/).  
+
+## 📸 Screenshots  
+
+### Create Page  
+![Create Page Screenshot](https://github.com/user-attachments/assets/ea7470c8-6c43-4eb1-905e-8ba1ef54e159)
+
+
+### Dashboard  
+![Dashboard Screenshot](https://github.com/user-attachments/assets/9e00bab7-c0a8-4418-9638-3a0a4b5ec35e)
+
+
+### Video Output  
+![Video Output Screenshot](https://via.placeholder.com/800x400?text=Video+Preview)  
+
+
