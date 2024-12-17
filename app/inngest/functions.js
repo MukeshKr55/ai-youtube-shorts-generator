@@ -66,7 +66,7 @@ export const generateShort = inngest.createFunction(
           console.log("[INFO] Step 4: Generating images in batches...");
 
           const batchSize = 3; // Limit per Hugging Face API
-          const apiUrl = getApiUrlByStyle(formData.style);
+          const apiUrl = "https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-dev";
           const triggerWord = getTriggerWordByStyle(formData.style);
 
           const processBatch = async (batch) => {
