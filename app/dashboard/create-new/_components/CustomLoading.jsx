@@ -23,7 +23,7 @@ function CustomLoading({ loading }) {
             Generating your video...
           </AlertDialogTitle>
           <p className="text-md text-gray-600 text-center px-6">
-            Processing your video may takes 2–3 mins. <br />
+            Processing your video may takes 3-5 mins. <br />
             Feel free to refresh or close the page – your video will be
             available in your dashboard once it is ready.
           </p>
